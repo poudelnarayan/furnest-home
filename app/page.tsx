@@ -1,65 +1,111 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ProductCard } from "@/components/product-card";
+import { getCatalogProducts } from "@/lib/data/catalog";
 
-export default function Home() {
+export default async function Home() {
+  const products = await getCatalogProducts();
+  const featured = products.slice(0, 8);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="mx-auto w-full max-w-7xl px-4 py-8">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-pink-600 px-6 py-12 text-white sm:px-10">
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-white/80">Game top-up platform</p>
+            <h1 className="mt-3 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+              Buy top-ups, gift cards, and accessories in one place
+            </h1>
+            <p className="mt-4 max-w-2xl text-white/90">
+              Secure wallet recharge, fast checkout, instant digital delivery, and reliable support for gaming shoppers.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link href="/products" className="rounded-full bg-white px-5 py-2.5 font-semibold text-indigo-700 hover:bg-zinc-100">
+                Shop now
+              </Link>
+              <Link href="/wallet/trax" className="rounded-full border border-white/50 px-5 py-2.5 font-semibold text-white hover:bg-white/10">
+                Guest wallet top-up
+              </Link>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white/10 p-3 backdrop-blur">
+            {[
+              ["5M+", "Trusted users"],
+              ["24/7", "Live support"],
+              ["Instant", "Digital delivery"],
+              ["Secure", "Tokenized payment"],
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-xl bg-white/15 p-4 text-center">
+                <p className="text-2xl font-extrabold">{value}</p>
+                <p className="text-sm text-white/85">{label}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <section className="mt-10 grid gap-4 md:grid-cols-3">
+        {[
+          ["Free Fire", "Diamonds & passes with instant fulfillment", "from-rose-500 to-pink-500"],
+          ["PUBG UC", "Daily deals, bundle pricing, secure checkout", "from-emerald-500 to-green-500"],
+          ["TikTok Coins", "Fast recharge with email confirmation", "from-cyan-500 to-blue-500"],
+        ].map(([title, desc, grad]) => (
+          <article key={title} className={`rounded-2xl bg-gradient-to-r ${grad} p-5 text-white`}>
+            <h3 className="text-xl font-bold">{title}</h3>
+            <p className="mt-2 text-sm text-white/90">{desc}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="mt-12">
+        <div className="mb-5 flex items-end justify-between">
+          <h2 className="text-2xl font-extrabold text-zinc-900">Featured Products</h2>
+          <Link href="/products" className="text-sm font-semibold text-indigo-600">
+            View all
+          </Link>
         </div>
-      </main>
-    </div>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-14 grid gap-8 lg:grid-cols-2">
+        <article className="rounded-2xl border bg-white p-6">
+          <h3 className="text-2xl font-bold text-zinc-900">Why gamers choose us</h3>
+          <ul className="mt-4 grid gap-3 text-sm text-zinc-700">
+            <li>• Secure card tokenization with Authorize.net Accept.js</li>
+            <li>• Wallet top-up and direct guest payment support</li>
+            <li>• Instant delivery for supported digital products</li>
+            <li>• Manual + automated fulfillment architecture ready</li>
+            <li>• Transparent order statuses and transaction history</li>
+          </ul>
+        </article>
+
+        <article className="rounded-2xl border bg-white p-6">
+          <h3 className="text-2xl font-bold text-zinc-900">Customer stories</h3>
+          <div className="mt-4 grid gap-3 text-sm text-zinc-700">
+            <blockquote className="rounded-lg bg-zinc-50 p-3">“Fast UC top-up. Order came in under a minute.”</blockquote>
+            <blockquote className="rounded-lg bg-zinc-50 p-3">“Guest top-up flow is super smooth and trustworthy.”</blockquote>
+            <blockquote className="rounded-lg bg-zinc-50 p-3">“Support team resolved my failed payment quickly.”</blockquote>
+          </div>
+        </article>
+      </section>
+
+      <section className="mt-14 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-8 text-white">
+        <h3 className="text-3xl font-extrabold">Start shopping today</h3>
+        <p className="mt-2 max-w-2xl text-white/85">
+          Browse products, add to cart, or use guest wallet top-up to load balance without account creation.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/products" className="rounded-full bg-white px-5 py-2.5 font-semibold text-indigo-700">
+            Browse catalog
+          </Link>
+          <Link href="/auth/register" className="rounded-full border border-white/50 px-5 py-2.5 font-semibold text-white">
+            Create account
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }

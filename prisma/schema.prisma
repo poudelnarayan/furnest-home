@@ -1,0 +1,396 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  SUPPORT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_EMAIL_VERIFICATION
+  SUSPENDED
+}
+
+enum LedgerEntryType {
+  CREDIT
+  DEBIT
+}
+
+enum LedgerStatus {
+  PENDING
+  POSTED
+  FAILED
+  REVERSED
+}
+
+enum PaymentProvider {
+  AUTHORIZE_NET
+}
+
+enum PaymentIntentStatus {
+  INITIATED
+  TOKENIZED
+  PENDING_GATEWAY
+  AUTHORIZED
+  SETTLED
+  DECLINED
+  FAILED
+  EXPIRED
+  FRAUD_HOLD
+  TIMED_OUT
+}
+
+enum GuestTopupStatus {
+  INITIATED
+  PENDING_GATEWAY
+  SETTLED
+  DECLINED
+  FAILED
+  EXPIRED
+  FRAUD_HOLD
+  TIMED_OUT
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ProductType {
+  DIGITAL_INSTANT
+  DIGITAL_MANUAL
+  PHYSICAL
+  TOPUP
+}
+
+enum InventoryMode {
+  TRACKED
+  DIGITAL_POOL
+  UNLIMITED
+}
+
+enum WalletAdjustmentType {
+  CREDIT
+  DEBIT
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  passwordHash         String
+  fullName             String
+  role                 Role                  @default(USER)
+  status               UserStatus            @default(PENDING_EMAIL_VERIFICATION)
+  emailVerifiedAt      DateTime?
+  twoFactorEnabled     Boolean               @default(false)
+  twoFactorSecret      String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  wallet               Wallet?
+  sessions             Session[]
+  emailVerification    EmailVerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
+  paymentIntents       PaymentIntent[]
+  orders               Order[]
+  auditLogs            AuditLog[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Wallet {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  currency       String   @default("USD")
+  availableCents BigInt   @default(0)
+  pendingCents   BigInt   @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries WalletLedgerEntry[]
+
+  @@index([userId, currency])
+}
+
+model WalletLedgerEntry {
+  id             String          @id @default(cuid())
+  walletId       String
+  userId         String
+  type           LedgerEntryType
+  status         LedgerStatus    @default(PENDING)
+  amountCents    BigInt
+  currency       String
+  referenceType  String
+  referenceId    String
+  idempotencyKey String
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  postedAt       DateTime?
+  failedAt       DateTime?
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@unique([referenceType, referenceId, type])
+  @@unique([walletId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([walletId, status])
+}
+
+model IdempotencyKey {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  scope       String
+  requestHash String
+  response    Json?
+  statusCode  Int?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([scope, createdAt])
+}
+
+model PaymentIntent {
+  id                    String              @id @default(cuid())
+  userId                String
+  provider              PaymentProvider
+  amountCents           BigInt
+  currency              String              @default("USD")
+  status                PaymentIntentStatus @default(INITIATED)
+  clientTokenRef        String?
+  merchantTransactionId String              @unique
+  gatewayTransactionId  String?             @unique
+  gatewayAuthCode       String?
+  failureCode           String?
+  failureReason         String?
+  idempotencyKey        String
+  metadata              Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  webhooks PaymentWebhookEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+}
+
+model PaymentWebhookEvent {
+  id              String   @id @default(cuid())
+  provider        PaymentProvider
+  eventType       String
+  gatewayEventId  String?
+  signatureValid  Boolean
+  payload         Json
+  dedupeKey       String   @unique
+  processed       Boolean  @default(false)
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+  paymentIntentId String?
+
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@index([provider, eventType, createdAt])
+}
+
+model GuestTopupRequest {
+  id                    String          @id @default(cuid())
+  firstName             String
+  lastName              String
+  email                 String
+  amountCents           BigInt
+  currency              String          @default("USD")
+  status                GuestTopupStatus @default(INITIATED)
+  merchantTransactionId String          @unique
+  gatewayTransactionId  String?         @unique
+  idempotencyKey        String          @unique
+  failureCode           String?
+  failureReason         String?
+  metadata              Json?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([email, createdAt])
+  @@index([status, createdAt])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  categoryId     String
+  sku            String        @unique
+  slug           String        @unique
+  name           String
+  description    String
+  type           ProductType
+  inventoryMode  InventoryMode
+  unitPriceCents BigInt
+  active         Boolean       @default(true)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  inventoryItems InventoryItem[]
+  orderItems     OrderItem[]
+}
+
+model InventoryItem {
+  id                String   @id @default(cuid())
+  productId         String
+  stockCode         String?
+  quantityAvailable Int      @default(0)
+  reservedQuantity  Int      @default(0)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, quantityAvailable])
+}
+
+model Coupon {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  discountPercent     Int?
+  discountAmountCents BigInt?
+  maxUses             Int?
+  usedCount           Int      @default(0)
+  minSubtotalCents    BigInt?
+  startsAt            DateTime
+  endsAt              DateTime
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  userId           String
+  orderNumber      String      @unique
+  status           OrderStatus @default(PENDING)
+  subtotalCents    BigInt
+  discountCents    BigInt      @default(0)
+  totalCents       BigInt
+  currency         String      @default("USD")
+  paymentIntentId  String?
+  paymentExpiresAt DateTime?
+  fraudScore       Int         @default(0)
+  fraudFlagged     Boolean     @default(false)
+  shippingAddress  Json?
+  topupMetadata    Json?
+  fulfilledAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id              String @id @default(cuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  unitPriceCents  BigInt
+  totalPriceCents BigInt
+  metadata        Json?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model WalletAdjustment {
+  id             String               @id @default(cuid())
+  userId         String
+  adminUserId    String
+  type           WalletAdjustmentType
+  amountCents    BigInt
+  reason         String
+  idempotencyKey String
+  createdAt      DateTime             @default(now())
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([resource, createdAt])
+}
