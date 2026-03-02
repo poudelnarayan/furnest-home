@@ -11,6 +11,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <script type="text/javascript" src="https://jstest.authorize.net/v1/Accept.js" charSet="utf-8"></script>
+      </head>
       <body className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-pink-50 text-zinc-900 antialiased">
         <SiteHeader />
         {children}

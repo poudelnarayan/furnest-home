@@ -4,7 +4,9 @@ import { hmacSha512Hex } from "@/lib/utils/hash";
 import { env } from "@/lib/config/env";
 import { fail, ok } from "@/lib/http/response";
 import { walletService } from "@/application/wallet/wallet.service";
+import { guestWalletService } from "@/application/wallet/guest-wallet.service";
 import { GuestTopupStatus, PaymentIntentStatus } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 type AuthorizePayload = {
   eventType?: string;
@@ -116,12 +118,29 @@ export async function POST(req: Request) {
       const gatewayTransactionId = payload.payload?.id ?? payment.gatewayTransactionId ?? "";
 
       if (eventType.includes("authcapture.created")) {
-        await walletService.postSuccessfulRecharge({
-          userId: payment.userId,
-          paymentIntentId: payment.id,
-          gatewayTransactionId,
-          idempotencyKey: payment.idempotencyKey,
-        });
+        const walletId = (payment as unknown as { walletId?: string | null }).walletId;
+        if (walletId && !payment.userId) {
+          const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
+
+          if (wallet && wallet.isGuest && wallet.sessionToken) {
+            await guestWalletService.postSuccessfulGuestTopup({
+              walletId: wallet.id,
+              sessionToken: wallet.sessionToken,
+              paymentIntentId: payment.id,
+              gatewayTransactionId,
+              idempotencyKey: payment.idempotencyKey,
+            });
+            logger.info({ paymentIntentId: payment.id, walletId: wallet.id }, "Guest wallet credited");
+          }
+        } else if (payment.userId) {
+          await walletService.postSuccessfulRecharge({
+            userId: payment.userId,
+            paymentIntentId: payment.id,
+            gatewayTransactionId,
+            idempotencyKey: payment.idempotencyKey,
+          });
+          logger.info({ paymentIntentId: payment.id, userId: payment.userId }, "User wallet credited");
+        }
       } else if (eventType.includes("fraud")) {
         await prisma.paymentIntent.update({
           where: { id: payment.id },

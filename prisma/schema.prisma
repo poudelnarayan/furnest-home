@@ -33,6 +33,14 @@ enum LedgerStatus {
 
 enum PaymentProvider {
   AUTHORIZE_NET
+  PAYPAL
+}
+
+enum PaymentMethodType {
+  CREDIT_CARD
+  APPLE_PAY
+  GOOGLE_PAY
+  PAYPAL
 }
 
 enum PaymentIntentStatus {
@@ -150,17 +158,23 @@ model PasswordResetToken {
 
 model Wallet {
   id             String   @id @default(cuid())
-  userId         String   @unique
+  userId         String?  @unique
+  guestEmail     String?
+  sessionToken   String?  @unique
+  isGuest        Boolean  @default(false)
   currency       String   @default("USD")
   availableCents BigInt   @default(0)
   pendingCents   BigInt   @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  expiresAt      DateTime?
 
-  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
   ledgerEntries WalletLedgerEntry[]
 
   @@index([userId, currency])
+  @@index([guestEmail, isGuest])
+  @@index([sessionToken])
 }
 
 model WalletLedgerEntry {
@@ -202,8 +216,10 @@ model IdempotencyKey {
 
 model PaymentIntent {
   id                    String              @id @default(cuid())
-  userId                String
+  userId                String?
+  walletId              String?
   provider              PaymentProvider
+  paymentMethod         PaymentMethodType   @default(CREDIT_CARD)
   amountCents           BigInt
   currency              String              @default("USD")
   status                PaymentIntentStatus @default(INITIATED)
@@ -218,11 +234,12 @@ model PaymentIntent {
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
-  user     User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user     User?                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   webhooks PaymentWebhookEvent[]
 
-  @@unique([userId, idempotencyKey])
+  @@unique([idempotencyKey])
   @@index([status, createdAt])
+  @@index([walletId])
 }
 
 model PaymentWebhookEvent {
@@ -244,24 +261,29 @@ model PaymentWebhookEvent {
 }
 
 model GuestTopupRequest {
-  id                    String          @id @default(cuid())
+  id                    String             @id @default(cuid())
   firstName             String
   lastName              String
   email                 String
+  walletId              String?
+  sessionToken          String?
+  paymentMethod         PaymentMethodType  @default(CREDIT_CARD)
   amountCents           BigInt
-  currency              String          @default("USD")
-  status                GuestTopupStatus @default(INITIATED)
-  merchantTransactionId String          @unique
-  gatewayTransactionId  String?         @unique
-  idempotencyKey        String          @unique
+  currency              String             @default("USD")
+  status                GuestTopupStatus   @default(INITIATED)
+  merchantTransactionId String             @unique
+  gatewayTransactionId  String?            @unique
+  idempotencyKey        String             @unique
   failureCode           String?
   failureReason         String?
   metadata              Json?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@index([email, createdAt])
   @@index([status, createdAt])
+  @@index([walletId])
+  @@index([sessionToken])
 }
 
 model Category {

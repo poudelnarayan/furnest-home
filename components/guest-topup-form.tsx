@@ -2,28 +2,6 @@
 
 import { useState } from "react";
 
-declare global {
-  interface Window {
-    Accept?: {
-      dispatchData: (
-        data: {
-          authData: { clientKey: string; apiLoginID: string };
-          cardData: {
-            cardNumber: string;
-            month: string;
-            year: string;
-            cardCode: string;
-          };
-        },
-        callback: (response: {
-          messages: { resultCode: string; message: Array<{ code: string; text: string }> };
-          opaqueData?: { dataValue: string; dataDescriptor: string };
-        }) => void,
-      ) => void;
-    };
-  }
-}
-
 export function GuestTopupForm({ clientKey, apiLoginId }: { clientKey: string; apiLoginId: string }) {
   const [amount, setAmount] = useState(10);
   const [firstName, setFirstName] = useState("");
